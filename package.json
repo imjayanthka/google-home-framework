@@ -1,0 +1,36 @@
+{
+  "//1": "describes your app and its dependencies",
+  "//2": "https://docs.npmjs.com/files/package.json",
+  "//3": "updating this file will download and update your packages",
+  "name": "google-home-framework",
+  "version": "0.0.1",
+  "description": "What am I about?",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "actions-on-google": "^1.0.4",
+    "apiai": "^4.0.3",
+    "body-parser": "^1.15.2",
+    "es6-map": "^0.1.4",
+    "express": "^4.14.0",
+    "prettyjson": "^1.2.1",
+    "request": "^2.79.0",
+    "underscore.string": "^3.3.4"
+  },
+  "engines": {
+    "node": "6.9.1"
+  },
+  "repository": {
+    "url": "https://gomix.com/#!/project/welcome-project"
+  },
+  "keywords": [
+    "node",
+    "gomix",
+    "express"
+  ],
+  "devDependencies": {},
+  "author": "Jayanth Kanugo",
+  "license": "MIT"
+}
