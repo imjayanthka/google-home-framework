@@ -9,6 +9,7 @@ var apiai = require("apiai");
 var appli = apiai("c7d8de5955a74ef7897a5f729382a378");
 const bodyParser = require('body-parser');
 const request = require('request');
+const session = require('express-session')
 const app = express();
 const Map = require('es6-map');
 
@@ -108,6 +109,10 @@ app.use(bodyParser.json({ type: 'application/json' }));
 
 // http://expressjs.com/en/starter/static-files.html
 app.use(express.static('public'));
+// Initialize the session for the user.
+app.use(session({secret: "shhhshshhssh"}))
+var currentSession;
+
 
 // http://expressjs.com/en/starter/basic-routing.html
 app.get("/", function (request, response) {
@@ -116,11 +121,21 @@ app.get("/", function (request, response) {
 
 // Handle webhook requests
 app.post('/', function (req, res, next) {
+    currentSession = req.session;
     // Log the request headers and body, to aide in debugging. You'll be able to view the
     // webhook requests coming from API.AI by clicking the Logs button the sidebar.
-    logObject('Request headers: ', req.headers);
-    logObject('Request body: ', req.body);
-
+    // logObject('Request headers: ', req.headers);
+    // logObject('Request body: ', req.body);
+    console.log("Session id in session: "+currentSession.sessionId)
+    console.log("Session id from api.ai: "+req.body.sessionId)
+   
+    // Checking for session error.
+    if(!currentSession.sessionId){
+        if(currentSession.sessionId != req.body.sessionId){
+            currentSession.sessionId = req.body.sessionId
+        }
+    }
+    console.log("Session id in session: "+currentSession.sessionId)
     // Instantiate a new API.AI assistant object.
     const assistant = new ApiAiAssistant({ request: req, response: res });
 
@@ -160,19 +175,26 @@ app.post('/', function (req, res, next) {
             sessionId: sessionId,
             entities: user_entities
         };
-
+        logObject('Data', returnValue)
         return returnValue
     } 
 
-    function nextQuestion(sessionId, appli) {
-        var question = easy.shift()
+    function nextQuestion(currentSession, appli, context) {
+        var question;
+        if(context == "next"){
+           question = easy.shift()
+            currentSession.currentQuestion  = question;
+        } else {
+            question = currentSession.currentQuestion;
+        }
+        console.log(currentSession.sessionId)
         if(question != undefined){
             //Give the next question and also setups anything required for the session.
             switch (question.type) {
                 case "MultipleChoice":
                     //Need to update entities
                     // Create a new promise
-                    var data = userEntitiesData(sessionId, question, MCQ_RESPONSE)
+                    var data = userEntitiesData(currentSession.sessionId, question, MCQ_RESPONSE)
                     var toTell = new Promise(function (resolve, reject) {
                         let user_entities_request = appli.userEntitiesRequest(data);
                         user_entities_request.on("response", (response) => {
@@ -181,7 +203,7 @@ app.post('/', function (req, res, next) {
                         });
                         user_entities_request.on('error', function (err) {
                             logObject('Error', err);
-                            reject("There was an error.");
+                            reject(err);
                         });
                         user_entities_request.end();
                     });
@@ -222,8 +244,10 @@ app.post('/', function (req, res, next) {
                         resolve(question.title)
                     });
             }
-        } else {
-            return "Thank You for participating in the survey"
+        } else { 
+            return new Promise(function (resolve, reject) {
+                resolve("Thank You for participating in the survey")
+            })
         }
     }
 
@@ -265,31 +289,38 @@ app.post('/', function (req, res, next) {
         console.log('mcqAnswer'+ mcqAnswer)
         console.log('timeInterval'+ timeInterval)
         
-        //Next question string
-        nextQuestion(req.body.sessionId, appli).then(function(toTell){
-            console.log('To tell: ' + toTell)
-            assistant.tell(toTell)
-        })
+
+        //Based on the answer
+        if(mcqAnswer == "repeat"){
+            nextQuestion(currentSession, appli, "repeat")
+            .then(function(toTell){
+                console.log('To tell: ' + toTell)
+                assistant.tell(toTell)
+            })
+            .catch(function(err){
+                console.log(err)
+                assistant.tell("Something went wrong")
+            })                          
+        } else {
+            //Next question string
+            currentSession.prevQuestion = currentSession.currentQuestion;
+            logObject("Prev Question", currentSession.prevQuestion)
+            nextQuestion(currentSession, appli, "next")
+            .then(function(toTell){
+                console.log('To tell: ' + toTell)
+                assistant.tell(toTell)
+            })
+            .catch(function(error){
+                console.log(error)
+                assistant.tell("Something went wrong")
+            })
+        }
+        
     }
 
     function welcomeIntent(assistant){
         console.log('Handling Action: Welcome Intent')
-        //Need to change to work with mcq questions.
-        // let answer = assistant.getArgument(YES_NO_RESPONSE);
-        //Next Question to tell.
-
-        // getUserEntities(req.body.sessionId, YES_NO_RESPONSE)
-        // .then(function(response){
-        //     nextQuestion(req.body.sessionId, appli).then(function (toTell) {
-        //         console.log('To tell: ' + toTell)
-        //         assistant.tell(toTell)
-        //     })
-        // })
-        // .catch(function (error) {
-        //     console.log("Error: "+error)
-        // })
-        
-        nextQuestion(req.body.sessionId, appli).then(function (toTell) {
+        nextQuestion(currentSession, appli, "next").then(function (toTell) {
             console.log('To tell: ' + toTell)
             assistant.tell(toTell)
         })
