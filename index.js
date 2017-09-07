@@ -1,6 +1,9 @@
 // server.js
 // where your node app starts
 
+
+const Entities = require("./model/entities.js");
+
 // init project
 const express = require('express');
 const ApiAiAssistant = require('actions-on-google').ApiAiAssistant;
@@ -12,6 +15,7 @@ const request = require('request');
 const session = require('express-session')
 const app = express();
 const Map = require('es6-map');
+
 
 
 //c7d8de5955a74ef7897a5f729382a378
@@ -157,8 +161,25 @@ app.post('/', function (req, res, next) {
             extend: false,
             entries: [{
                 value: "repeat",
-                synonyms: ["options", "repeat", "come again"]
-            }]
+                synonyms: ["options", "repeat", "again"]
+            },
+            {
+                value: "Done",
+                synonyms:["Completed", "Done"]
+            },
+            {
+                value: "Skip",
+                synonyms: ["skip"]
+            },
+            {
+                value: "Next",
+                synonyms: ["Next"]
+            },
+            {
+                value: "Back",
+                synonyms: ["Previous", "Back"]
+            }
+        ]
         }];
         logObject('user_entities: ', user_entities)
         question.choices.forEach(function (element) {
@@ -194,20 +215,23 @@ app.post('/', function (req, res, next) {
                 case "MultipleChoice":
                     //Need to update entities
                     // Create a new promise
-                    var data = userEntitiesData(currentSession.sessionId, question, MCQ_RESPONSE)
-                    var toTell = new Promise(function (resolve, reject) {
-                        let user_entities_request = appli.userEntitiesRequest(data);
-                        user_entities_request.on("response", (response) => {
-                            console.log("I am all done");
-                            resolve(question.title)
-                        });
-                        user_entities_request.on('error', function (err) {
-                            logObject('Error', err);
-                            reject(err);
-                        });
-                        user_entities_request.end();
-                    });
-                    return toTell;
+                    var data = new Entities({sessionId: currentSession.sessionId});
+                    data.addMCQEntries(question.choices)
+                    return data.saveUserEntities();
+                    // userEntitiesData(currentSession.sessionId, question, MCQ_RESPONSE)
+                    // var toTell = new Promise(function (resolve, reject) {
+                    //     let user_entities_request = appli.userEntitiesRequest(data);
+                    //     user_entities_request.on("response", (response) => {
+                    //         console.log("I am all done");
+                    //         resolve(question.title)
+                    //     });
+                    //     user_entities_request.on('error', function (err) {
+                    //         logObject('Error', err);
+                    //         reject(err);
+                    //     });
+                    //     user_entities_request.end();
+                    // });
+                    // return toTell;
                     break;
                 case "Scale":
                     return new Promise(function (resolve, reject) {
@@ -351,7 +375,7 @@ function logObject(message, object, options) {
 }
 
 // Listen for requests.
-let server = app.listen(9109, function () {
+let server = app.listen(9100, function () {
     console.log('Your app is listening on port ' + server.address().port);
 });
 
