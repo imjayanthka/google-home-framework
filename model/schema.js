@@ -28,7 +28,8 @@ var schema = {
         synonyms: ["Previous", "Back"]
     }],
     questionData: {
-        currrentSession: null,    
+        currentSession: null, 
+        survey: null, 
         question:{
             choices: null,
             conditionID: null,

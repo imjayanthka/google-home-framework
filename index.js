@@ -11,15 +11,17 @@ const toSentence = require('underscore.string/toSentence');
 
 //Google and API.AI
 const ApiAiAssistant = require('actions-on-google').ApiAiAssistant;
-const apiai = require("apiai"); const bodyParser = require('body-parser');
+// const apiai = require("apiai"); 
+const bodyParser = require('body-parser');
 
 //Models
 const Entities = require("./model/entities.js");
+const Question = require("./model/question")
 
 // init project
 const app = express();
 //c7d8de5955a74ef7897a5f729382a378
-const appli = apiai("c7d8de5955a74ef7897a5f729382a378");
+// const appli = apiai("c7d8de5955a74ef7897a5f729382a378");
 
 const survey = [{
     "conditionID": "",
@@ -110,6 +112,7 @@ app.use(express.static('public'));
 // Initialize the session for the user.
 app.use(session({secret: "shhhshshhssh"}))
 var currentSession;
+var question;
 
 
 // http://expressjs.com/en/starter/basic-routing.html
@@ -244,12 +247,13 @@ app.post('/', function (req, res, next) {
         console.log('yesNoAnswer' + yesNoAnswer)
         console.log('mcqAnswer'+ mcqAnswer)
         console.log('timeInterval'+ timeInterval)
+        console.log('*****************************************')
         
         switch(mcqAnswer){
             case "Repeat":
-                nextQuestion(currentSession, appli, "repeat")
+                question.repeatQuestion
                     .then(function (toTell) {
-                        console.log('To tell: ' + toTell)
+                        console.log('To tell: Repeat: ' + toTell)
                         assistant.tell(toTell)
                     })
                     .catch(function (err) {
@@ -259,12 +263,9 @@ app.post('/', function (req, res, next) {
                 break;
             case "Back":
                 // I need to index for get which question in array.
-                currentSession.prevQuestion = currentSession.currentQuestion;
-                
-                logObject("Prev Question", currentSession.prevQuestion)
-                nextQuestion(currentSession, appli, "back")
+                question.backQuestion()
                     .then(function (toTell) {
-                        console.log('To tell: ' + toTell)
+                        console.log('To tell: Back: ' + toTell)
                         assistant.tell(toTell)
                     })
                     .catch(function (error) {
@@ -273,11 +274,9 @@ app.post('/', function (req, res, next) {
                     })
                 break;
             case "Skip":
-                currentSession.prevQuestion = currentSession.currentQuestion;
-                logObject("Prev Question", currentSession.prevQuestion)
-                nextQuestion(currentSession, appli, "skip")
+                question.skipQuestion()
                     .then(function (toTell) {
-                        console.log('To tell: ' + toTell)
+                        console.log('To tell: Skip: ' + toTell)
                         assistant.tell(toTell)
                     })
                     .catch(function (error) {
@@ -286,11 +285,9 @@ app.post('/', function (req, res, next) {
                     })
                 break;
             case "Done":
-                currentSession.prevQuestion = currentSession.currentQuestion;
-                logObject("Prev Question", currentSession.prevQuestion)
-                nextQuestion(currentSession, appli, "done")
+                question.doneQuestion(currentSession, appli, "done")
                     .then(function (toTell) {
-                        console.log('To tell: ' + toTell)
+                        console.log('To tell: Done: ' + toTell)
                         assistant.tell(toTell)
                     })
                     .catch(function (error) {
@@ -300,11 +297,10 @@ app.post('/', function (req, res, next) {
                 
                 break;
             default:
-                currentSession.prevQuestion = currentSession.currentQuestion;
-                logObject("Prev Question", currentSession.prevQuestion)
-                nextQuestion(currentSession, appli, "next")
+                question.nextQuestion()
                     .then(function (toTell) {
-                        console.log('To tell: ' + toTell)
+                        console.log('To tell: default: ' + toTell)
+                        currentSession = question.getData("currentSession")
                         assistant.tell(toTell)
                     })
                     .catch(function (error) {
@@ -313,40 +309,59 @@ app.post('/', function (req, res, next) {
                     })
                 break;
         }
+        // question.nextQuestion()
+        //     .then(function (toTell) {
+        //         currentSession = question.getData("currentSession")
+        //         assistant.tell(toTell)
+        //     })
+        //     .catch(function (error) {
+        //         console.log(error)
+        //         assistant.tell("Something went wrong")
+        //     })
         //Based on the answer
-        if(mcqAnswer == "repeat"){
-            nextQuestion(currentSession, appli, "repeat")
-            .then(function(toTell){
-                console.log('To tell: ' + toTell)
-                assistant.tell(toTell)
-            })
-            .catch(function(err){
-                console.log(err)
-                assistant.tell("Something went wrong")
-            })                          
-        } else {
-            //Next question string
-            currentSession.prevQuestion = currentSession.currentQuestion;
-            logObject("Prev Question", currentSession.prevQuestion)
-            nextQuestion(currentSession, appli, "next")
-            .then(function(toTell){
-                console.log('To tell: ' + toTell)
-                assistant.tell(toTell)
-            })
-            .catch(function(error){
-                console.log(error)
-                assistant.tell("Something went wrong")
-            })
-        }
+        // if(mcqAnswer == "repeat"){
+        //     nextQuestion(currentSession, appli, "repeat")
+        //     .then(function(toTell){
+        //         console.log('To tell: ' + toTell)
+        //         assistant.tell(toTell)
+        //     })
+        //     .catch(function(err){
+        //         console.log(err)
+        //         assistant.tell("Something went wrong")
+        //     })                          
+        // } else {
+        //     //Next question string
+        //     nextQuestion(currentSession, appli, "next")
+        //     .then(function(toTell){
+        //         console.log('To tell: ' + toTell)
+        //         assistant.tell(toTell)
+        //     })
+        //     .catch(function(error){
+        //         console.log(error)
+        //         assistant.tell("Something went wrong")
+        //     })
+        // }
         
     }
 
     function welcomeIntent(assistant){
         console.log('Handling Action: Welcome Intent')
-        nextQuestion(currentSession, appli, "next").then(function (toTell) {
-            console.log('To tell: ' + toTell)
-            assistant.tell(toTell)
-        })
+        //Define session variables
+        currentSession.currentIndex = 0;
+        currentSession.prevIndex = null;
+        //Create new question object
+        question = new Question({currentSession: currentSession, survey: easy})
+
+        //Need to return session
+        question.firstQuestion()
+            .then(function (toTell){
+                currentSession = question.getData("currentSession")
+                assistant.tell(toTell)
+            })
+            .catch(function (err){
+                console.log(err)
+                assistant.tell("Hey something went wrong.")
+            })
     }
 
 

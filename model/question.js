@@ -1,11 +1,24 @@
+const apiai = require("apiai"); 
+
+const appli = apiai("c7d8de5955a74ef7897a5f729382a378");
 var Entities = require("./entities");
 var schema = require("./schema");
 var _ = require("lodash");
-var Quesiton = function (data){
+
+
+
+
+
+var Question = function (data){
     this.data = this.sanitize(data);
+    console.log(this.data)
+    this.numberOfQuestions = this.data.survey.length;
+    this.data.question  = this.data.survey[this.data.currentSession.currentIndex]
 }
 
-Quesiton.prototype.data = {}
+Question.prototype.data = {};
+Question.prototype.numberOfQuestions = null;
+
 
 Question.prototype.sanitize= function (data){
     data = data || {}
@@ -15,8 +28,11 @@ Question.prototype.sanitize= function (data){
 }
 
 
-Question.prototype.getData = function (question){
-    return this.data;
+Question.prototype.getData = function (attribute){
+    if(attribute == null)
+        return this.data;
+    else
+        return this.data[attribute]
 }
 
 Question.prototype.setData = function(data){
@@ -24,91 +40,94 @@ Question.prototype.setData = function(data){
     return
 }
 
-Quesiton.prototype.next = function(question){
-    //This is great thing
-    
-    switch(context){
-        case "next":
-            break;
-        case "back":
-            break;
-        case "skip":
-            break;
-        default:
-            break;
-    }
+Question.prototype.firstQuestion = function(){
+    this.data.question = this.data.survey[this.data.currentSession.currentIndex]
+    return this.returnTitle()
 }
 
-Question.prototype.skip = function(quesiton){
-
+Question.prototype.nextQuestion = function(){
+    //Change in session information
+    this.data.currentSession.prevIndex = this.data.currentSession.currentIndex;
+    this.data.currentSession.currentIndex++;
+    this.data.question = this.data.survey[this.data.currentSession.currentIndex]
+    //Return the Promise
+    return this.returnTitle()   
 }
 
-Quesiton.prototype.back = function(quesiton){
-
+Question.prototype.skipQuestion = function(quesiton){
+    return this.next();
 }
 
-Quesiton.prototype.repeat = function(quesiton){
-    nextQuestion(question, "done")
-        .then(function (toTell) {
-            console.log('To tell: ' + toTell)
-            assistant.tell(toTell)
-        })
-        .catch(function (error) {
-            console.log(error)
-            assistant.tell("Something went wrong")
-        })
+Question.prototype.backQuestion = function(quesiton){
+    this.data.currentSession.currentIndex = this.data.currentSession.prevIndex;
+    this.data.currentSession.prevIndex--;
+    this.data.quesiton = this.data.survey[this.data.currentSession.currentIndex]
+    //return promise
+    return this.returnTitle()
 }
 
-Quesiton.prototype.done = function(quesiton){
-
+Question.prototype.repeatQuestion = function(){
+    //No change in session information
+    return this.returnTitle()
 }
 
-Quesiton.prototype.returnTitle = function(question){
-    if (question != undefined) {
+
+//For multiple select options.
+Question.prototype.doneQuestion = function(quesiton){
+    //Save the MCQ response as the 
+    return this.returnTitle()
+}
+
+Question.prototype.returnTitle = function(){
+    if (this.data != undefined) {
+        let questionData = this.getData(null);
+        console.log(this.getData())
         //Give the next question and also setups anything required for the session.
-        switch (question.type) {
+        switch (questionData.question.type) {
             case "MultipleChoice":
                 //Need to update entities
                 // Create a new promise
-                console.log("current session: " + question.sessionId)
-                var data = new Entities({ sessionId: currentSession.sessionId });
-                data.addMCQEntries(question.choices)
-                return data.saveUserEntities(appli, data, question);
+                console.log("current session: " + questionData.currentSession.sessionId)
+                var data = new Entities({ sessionId: questionData.currentSession.sessionId });
+                data.addMCQEntries(questionData.question.choices)
+                //returns a promise
+                return data.saveUserEntities(appli, data, questionData.question);
                 break;
             case "Scale":
                 return new Promise(function (resolve, reject) {
-                    resolve(question.title)
+                    resolve(questionData.question.title)
                 })
                 break;
             case "textSlide":
                 return new Promise(function (resolve, reject) {
-                    resolve(question.title)
+                    resolve(questionData.question.title)
                 })
                 break;
             case "timeInt":
                 return new Promise(function (resolve, reject) {
-                    resolve(question.title)
+                    resolve(questionData.question.title)
                 })
                 break;
             case "dateTime":
                 return new Promise(function (resolve, reject) {
-                    resolve(question.title)
+                    resolve(questionData.question.title)
                 })
                 break;
             case "textField":
                 return new Promise(function (resolve, reject) {
-                    resolve(question.title)
+                    resolve(questionData.question.title)
                 })
                 break;
             case "yesNo":
                 return new Promise(function (resolve, reject) {
-                    resolve(question.title)
+                    resolve(questionData.question.title)
                 })
                 break;
             default:
                 return new Promise(function (resolve, reject) {
-                    resolve(question.title)
+                    resolve(questionData.question.title)
                 });
+                break;
         }
     } else {
         return new Promise(function (resolve, reject) {
@@ -119,19 +138,4 @@ Quesiton.prototype.returnTitle = function(question){
 
 }
 
-
-
-
-function nextQuestion(currentSession, appli, context) {
-    var question;
-    if (context == "next") {
-        question = easy.shift()
-        currentSession.currentQuestion = question;
-    } else {
-        question = currentSession.currentQuestion;
-    }
-    
-}
-
-
-module.exports = Quesiton;
+module.exports = Question;
