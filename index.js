@@ -1,31 +1,25 @@
 // server.js
 // where your node app starts
 
+//Frameworks
+const express = require('express');
+const request = require('request');
+const session = require('express-session')
+const Map = require('es6-map');
+const prettyjson = require('prettyjson');
+const toSentence = require('underscore.string/toSentence');
 
+//Google and API.AI
+const ApiAiAssistant = require('actions-on-google').ApiAiAssistant;
+const apiai = require("apiai"); const bodyParser = require('body-parser');
+
+//Models
 const Entities = require("./model/entities.js");
 
 // init project
-const express = require('express');
-const ApiAiAssistant = require('actions-on-google').ApiAiAssistant;
-var apiai = require("apiai");
-//d0eefe002d5243d8bb40b17345111f28
-var appli = apiai("c7d8de5955a74ef7897a5f729382a378");
-const bodyParser = require('body-parser');
-const request = require('request');
-const session = require('express-session')
 const app = express();
-const Map = require('es6-map');
-
-
-
 //c7d8de5955a74ef7897a5f729382a378
-
-// Pretty JSON output for logs
-const prettyjson = require('prettyjson');
-// Join an array of strings into a sentence
-// https://github.com/epeli/underscore.string#tosentencearray-delimiter-lastdelimiter--string
-const toSentence = require('underscore.string/toSentence');
-
+const appli = apiai("c7d8de5955a74ef7897a5f729382a378");
 
 const survey = [{
     "conditionID": "",
@@ -153,53 +147,6 @@ app.post('/', function (req, res, next) {
     const MCQ_RESPONSE = 'mcq-entity'
     const TIME_INTERVAL = 'timeInterval'
 
-    //Data for Editing user entities.
-    function userEntitiesData(sessionId, question, name) {
-        //Think of adding other values for changing question types.
-        var user_entities = [{
-            name: name,
-            extend: false,
-            entries: [{
-                value: "repeat",
-                synonyms: ["options", "repeat", "again"]
-            },
-            {
-                value: "Done",
-                synonyms:["Completed", "Done"]
-            },
-            {
-                value: "Skip",
-                synonyms: ["skip"]
-            },
-            {
-                value: "Next",
-                synonyms: ["Next"]
-            },
-            {
-                value: "Back",
-                synonyms: ["Previous", "Back"]
-            }
-        ]
-        }];
-        logObject('user_entities: ', user_entities)
-        question.choices.forEach(function (element) {
-            var entities = {
-                value: "",
-                synonyms: []
-            }
-            entities.value = element;
-            entities.synonyms.push(element);
-            user_entities[0].entries.push(entities);
-        }, this);
-
-        var returnValue = {
-            sessionId: sessionId,
-            entities: user_entities
-        };
-        logObject('Data', returnValue)
-        return returnValue
-    } 
-
     function nextQuestion(currentSession, appli, context) {
         var question;
         if(context == "next"){
@@ -208,30 +155,16 @@ app.post('/', function (req, res, next) {
         } else {
             question = currentSession.currentQuestion;
         }
-        console.log(currentSession.sessionId)
         if(question != undefined){
             //Give the next question and also setups anything required for the session.
             switch (question.type) {
                 case "MultipleChoice":
                     //Need to update entities
                     // Create a new promise
+                    console.log("current session: " + currentSession.sessionId)
                     var data = new Entities({sessionId: currentSession.sessionId});
                     data.addMCQEntries(question.choices)
-                    return data.saveUserEntities();
-                    // userEntitiesData(currentSession.sessionId, question, MCQ_RESPONSE)
-                    // var toTell = new Promise(function (resolve, reject) {
-                    //     let user_entities_request = appli.userEntitiesRequest(data);
-                    //     user_entities_request.on("response", (response) => {
-                    //         console.log("I am all done");
-                    //         resolve(question.title)
-                    //     });
-                    //     user_entities_request.on('error', function (err) {
-                    //         logObject('Error', err);
-                    //         reject(err);
-                    //     });
-                    //     user_entities_request.end();
-                    // });
-                    // return toTell;
+                    return data.saveUserEntities(appli, data, question);
                     break;
                 case "Scale":
                     return new Promise(function (resolve, reject) {
@@ -293,7 +226,6 @@ app.post('/', function (req, res, next) {
     }
 
     function deleteUserEntities(sessionId){
-
     }
 
 
@@ -313,7 +245,74 @@ app.post('/', function (req, res, next) {
         console.log('mcqAnswer'+ mcqAnswer)
         console.log('timeInterval'+ timeInterval)
         
-
+        switch(mcqAnswer){
+            case "Repeat":
+                nextQuestion(currentSession, appli, "repeat")
+                    .then(function (toTell) {
+                        console.log('To tell: ' + toTell)
+                        assistant.tell(toTell)
+                    })
+                    .catch(function (err) {
+                        console.log(err)
+                        assistant.tell("Something went wrong")
+                    })
+                break;
+            case "Back":
+                // I need to index for get which question in array.
+                currentSession.prevQuestion = currentSession.currentQuestion;
+                
+                logObject("Prev Question", currentSession.prevQuestion)
+                nextQuestion(currentSession, appli, "back")
+                    .then(function (toTell) {
+                        console.log('To tell: ' + toTell)
+                        assistant.tell(toTell)
+                    })
+                    .catch(function (error) {
+                        console.log(error)
+                        assistant.tell("Something went wrong")
+                    })
+                break;
+            case "Skip":
+                currentSession.prevQuestion = currentSession.currentQuestion;
+                logObject("Prev Question", currentSession.prevQuestion)
+                nextQuestion(currentSession, appli, "skip")
+                    .then(function (toTell) {
+                        console.log('To tell: ' + toTell)
+                        assistant.tell(toTell)
+                    })
+                    .catch(function (error) {
+                        console.log(error)
+                        assistant.tell("Something went wrong")
+                    })
+                break;
+            case "Done":
+                currentSession.prevQuestion = currentSession.currentQuestion;
+                logObject("Prev Question", currentSession.prevQuestion)
+                nextQuestion(currentSession, appli, "done")
+                    .then(function (toTell) {
+                        console.log('To tell: ' + toTell)
+                        assistant.tell(toTell)
+                    })
+                    .catch(function (error) {
+                        console.log(error)
+                        assistant.tell("Something went wrong")
+                    })
+                
+                break;
+            default:
+                currentSession.prevQuestion = currentSession.currentQuestion;
+                logObject("Prev Question", currentSession.prevQuestion)
+                nextQuestion(currentSession, appli, "next")
+                    .then(function (toTell) {
+                        console.log('To tell: ' + toTell)
+                        assistant.tell(toTell)
+                    })
+                    .catch(function (error) {
+                        console.log(error)
+                        assistant.tell("Something went wrong")
+                    })
+                break;
+        }
         //Based on the answer
         if(mcqAnswer == "repeat"){
             nextQuestion(currentSession, appli, "repeat")
