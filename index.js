@@ -1,27 +1,27 @@
 // server.js
 // where your node app starts
 
-// init project
+//Frameworks
 const express = require('express');
-const ApiAiAssistant = require('actions-on-google').ApiAiAssistant;
-var apiai = require("apiai");
-//d0eefe002d5243d8bb40b17345111f28
-var appli = apiai("c7d8de5955a74ef7897a5f729382a378");
-const bodyParser = require('body-parser');
 const request = require('request');
 const session = require('express-session')
-const app = express();
 const Map = require('es6-map');
-
-
-//c7d8de5955a74ef7897a5f729382a378
-
-// Pretty JSON output for logs
 const prettyjson = require('prettyjson');
-// Join an array of strings into a sentence
-// https://github.com/epeli/underscore.string#tosentencearray-delimiter-lastdelimiter--string
 const toSentence = require('underscore.string/toSentence');
 
+//Google and API.AI
+const ApiAiAssistant = require('actions-on-google').ApiAiAssistant;
+// const apiai = require("apiai"); 
+const bodyParser = require('body-parser');
+
+//Models
+const Entities = require("./model/entities.js");
+const Question = require("./model/question")
+
+// init project
+const app = express();
+//c7d8de5955a74ef7897a5f729382a378
+// const appli = apiai("c7d8de5955a74ef7897a5f729382a378");
 
 const survey = [{
     "conditionID": "",
@@ -112,6 +112,7 @@ app.use(express.static('public'));
 // Initialize the session for the user.
 app.use(session({secret: "shhhshshhssh"}))
 var currentSession;
+var question;
 
 
 // http://expressjs.com/en/starter/basic-routing.html
@@ -126,7 +127,7 @@ app.post('/', function (req, res, next) {
     // webhook requests coming from API.AI by clicking the Logs button the sidebar.
     // logObject('Request headers: ', req.headers);
     // logObject('Request body: ', req.body);
-    console.log("Session id in session: "+currentSession.sessionId)
+    // console.log("Session id in session: "+currentSession.sessionId)
     console.log("Session id from api.ai: "+req.body.sessionId)
    
     // Checking for session error.
@@ -135,7 +136,7 @@ app.post('/', function (req, res, next) {
             currentSession.sessionId = req.body.sessionId
         }
     }
-    console.log("Session id in session: "+currentSession.sessionId)
+    // console.log("Session id in session: "+currentSession.sessionId)
     // Instantiate a new API.AI assistant object.
     const assistant = new ApiAiAssistant({ request: req, response: res });
 
@@ -148,129 +149,10 @@ app.post('/', function (req, res, next) {
     const YES_NO_RESPONSE = 'yesNoResponse' // An API.ai parameter name
     const MCQ_RESPONSE = 'mcq-entity'
     const TIME_INTERVAL = 'timeInterval'
-
-    //Data for Editing user entities.
-    function userEntitiesData(sessionId, question, name) {
-        //Think of adding other values for changing question types.
-        var user_entities = [{
-            name: name,
-            extend: false,
-            entries: [{
-                value: "repeat",
-                synonyms: ["options", "repeat", "come again"]
-            }]
-        }];
-        logObject('user_entities: ', user_entities)
-        question.choices.forEach(function (element) {
-            var entities = {
-                value: "",
-                synonyms: []
-            }
-            entities.value = element;
-            entities.synonyms.push(element);
-            user_entities[0].entries.push(entities);
-        }, this);
-
-        var returnValue = {
-            sessionId: sessionId,
-            entities: user_entities
-        };
-        logObject('Data', returnValue)
-        return returnValue
-    } 
-
-    function nextQuestion(currentSession, appli, context) {
-        var question;
-        if(context == "next"){
-           question = easy.shift()
-            currentSession.currentQuestion  = question;
-        } else {
-            question = currentSession.currentQuestion;
-        }
-        console.log(currentSession.sessionId)
-        if(question != undefined){
-            //Give the next question and also setups anything required for the session.
-            switch (question.type) {
-                case "MultipleChoice":
-                    //Need to update entities
-                    // Create a new promise
-                    var data = userEntitiesData(currentSession.sessionId, question, MCQ_RESPONSE)
-                    var toTell = new Promise(function (resolve, reject) {
-                        let user_entities_request = appli.userEntitiesRequest(data);
-                        user_entities_request.on("response", (response) => {
-                            console.log("I am all done");
-                            resolve(question.title)
-                        });
-                        user_entities_request.on('error', function (err) {
-                            logObject('Error', err);
-                            reject(err);
-                        });
-                        user_entities_request.end();
-                    });
-                    return toTell;
-                    break;
-                case "Scale":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                case "textSlide":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                case "timeInt":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                case "dateTime":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                case "textField":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                case "yesNo":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                default:
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    });
-            }
-        } else { 
-            return new Promise(function (resolve, reject) {
-                resolve("Thank You for participating in the survey")
-            })
-        }
-    }
-
-    function getUserEntities(sessionId, queryString){
-        var entities = new Promise(function (resolve, reject) {
-            var options = {
-                sessionId: req.body.sessionId
-            };
-            var requestEntity = appli.textRequest(queryString, options);
-            requestEntity.on('response', (response) => function (response) {
-                resolve(response)
-            })
-            requestEntity.on('error', (err) => function (err) {
-                reject(err)
-            })
-            requestEntity.end();
-        }) 
-        return entities 
-    }
-
-    function deleteUserEntities(sessionId){
-
-    }
+    const TEXT_RESPONSE = 'text'
+    const TIME_REPSONSE = 'time'
+    const DATE_RESPONSE = 'date'
+    const NUM_RESPONSE = 'number'
 
 
 
@@ -280,50 +162,103 @@ app.post('/', function (req, res, next) {
     // Create functions to handle intents here
     function yesNoAnswer(assistant) {
         console.log('Handling action: ' + YES_NO_ANSWER);
-        let yesNoAnswer = assistant.getArgument(YES_NO_RESPONSE);
-        let mcqAnswer = assistant.getArgument(MCQ_RESPONSE);
-        let timeInterval = assistant.getArgument(TIME_INTERVAL);
+        let questionResponse = {};
+         questionResponse.yesNoAnswer = assistant.getArgument(YES_NO_RESPONSE);
+         questionResponse.mcqAnswer = assistant.getArgument(MCQ_RESPONSE);
+         questionResponse.timeInterval = assistant.getArgument(TIME_INTERVAL);
+         questionResponse.dateResponse = assistant.getArgument(DATE_RESPONSE);
+         questionResponse.timeResponse = assistant.getArgument(TIME_REPSONSE);
+         questionResponse.numberResponse = assistant.getArgument(NUM_RESPONSE)
 
         console.log('ID' + req.body.sessionId)
-        console.log('yesNoAnswer' + yesNoAnswer)
-        console.log('mcqAnswer'+ mcqAnswer)
-        console.log('timeInterval'+ timeInterval)
+        logObject("Response Object: ", questionResponse)
+        console.log('*****************************************')
         
-
-        //Based on the answer
-        if(mcqAnswer == "repeat"){
-            nextQuestion(currentSession, appli, "repeat")
-            .then(function(toTell){
-                console.log('To tell: ' + toTell)
-                assistant.tell(toTell)
-            })
-            .catch(function(err){
-                console.log(err)
-                assistant.tell("Something went wrong")
-            })                          
-        } else {
-            //Next question string
-            currentSession.prevQuestion = currentSession.currentQuestion;
-            logObject("Prev Question", currentSession.prevQuestion)
-            nextQuestion(currentSession, appli, "next")
-            .then(function(toTell){
-                console.log('To tell: ' + toTell)
-                assistant.tell(toTell)
-            })
-            .catch(function(error){
-                console.log(error)
-                assistant.tell("Something went wrong")
-            })
-        }
-        
+        switch(mcqAnswer){
+            case "Repeat":
+                question.repeatQuestion()
+                    .then(function (toTell) {
+                        console.log('To tell: Repeat: ' + toTell)
+                        assistant.tell(toTell)
+                    })
+                    .catch(function (err) {
+                        console.log(err)
+                        assistant.tell("Something went wrong")
+                    })
+                break;
+            case "Back":
+                // I need to index for get which question in array.
+                question.backQuestion()
+                    .then(function (toTell) {
+                        console.log('To tell: Back: ' + toTell)
+                        assistant.tell(toTell)
+                    })
+                    .catch(function (error) {
+                        console.log(error)
+                        assistant.tell("Something went wrong")
+                    })
+                break;
+            case "Skip":
+                question.skipQuestion()
+                    .then(function (toTell) {
+                        console.log('To tell: Skip: ' + toTell)
+                        assistant.tell(toTell)
+                    })
+                    .catch(function (error) {
+                        console.log(error)
+                        assistant.tell("Something went wrong")
+                    })
+                break;
+            case "Done":
+                question.doneQuestion(currentSession, appli, "done")
+                    .then(function (toTell) {
+                        console.log('To tell: Done: ' + toTell)
+                        assistant.tell(toTell)
+                    })
+                    .catch(function (error) {
+                        console.log(error)
+                        assistant.tell("Something went wrong")
+                    })
+                
+                break;
+            default:
+                question.nextQuestion()
+                    .then(function (toTell) {
+                        console.log('To tell: default: ' + toTell)
+                        currentSession = question.getData("currentSession")
+                        assistant.tell(toTell)
+                    })
+                    .catch(function (error) {
+                        console.log(error)
+                        assistant.tell("Something went wrong")
+                    })
+                break;
+        }   
     }
 
     function welcomeIntent(assistant){
         console.log('Handling Action: Welcome Intent')
-        nextQuestion(currentSession, appli, "next").then(function (toTell) {
-            console.log('To tell: ' + toTell)
-            assistant.tell(toTell)
-        })
+        //Define session variables
+        currentSession.currentIndex = 0;
+        currentSession.prevIndex = -1;
+        //Create new question object
+        question = new Question({currentSession: currentSession, survey: easy})
+        //Setup User Entities for Repeat, Skip, Done, Back and Next
+        
+        //returns a promise
+        question.firstQuestion(question)
+            .then(function (toTell) {
+                console.log(toTell)
+                currentSession = question.getData("currentSession")
+                assistant.tell(toTell)
+            })
+            .catch(function (err) {
+                console.log(err)
+                assistant.tell("Hey something went wrong.")
+            })
+
+
+        //Need to return session
     }
 
 
@@ -351,7 +286,7 @@ function logObject(message, object, options) {
 }
 
 // Listen for requests.
-let server = app.listen(9109, function () {
+let server = app.listen(9100, function () {
     console.log('Your app is listening on port ' + server.address().port);
 });
 
