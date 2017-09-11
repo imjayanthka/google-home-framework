@@ -149,6 +149,10 @@ app.post('/', function (req, res, next) {
     const YES_NO_RESPONSE = 'yesNoResponse' // An API.ai parameter name
     const MCQ_RESPONSE = 'mcq-entity'
     const TIME_INTERVAL = 'timeInterval'
+    const TEXT_RESPONSE = 'text'
+    const TIME_REPSONSE = 'time'
+    const DATE_RESPONSE = 'date'
+    const NUM_RESPONSE = 'number'
 
 
 
@@ -158,14 +162,16 @@ app.post('/', function (req, res, next) {
     // Create functions to handle intents here
     function yesNoAnswer(assistant) {
         console.log('Handling action: ' + YES_NO_ANSWER);
-        let yesNoAnswer = assistant.getArgument(YES_NO_RESPONSE);
-        let mcqAnswer = assistant.getArgument(MCQ_RESPONSE);
-        let timeInterval = assistant.getArgument(TIME_INTERVAL);
+        let questionResponse = {};
+         questionResponse.yesNoAnswer = assistant.getArgument(YES_NO_RESPONSE);
+         questionResponse.mcqAnswer = assistant.getArgument(MCQ_RESPONSE);
+         questionResponse.timeInterval = assistant.getArgument(TIME_INTERVAL);
+         questionResponse.dateResponse = assistant.getArgument(DATE_RESPONSE);
+         questionResponse.timeResponse = assistant.getArgument(TIME_REPSONSE);
+         questionResponse.numberResponse = assistant.getArgument(NUM_RESPONSE)
 
         console.log('ID' + req.body.sessionId)
-        console.log('yesNoAnswer' + yesNoAnswer)
-        console.log('mcqAnswer'+ mcqAnswer)
-        console.log('timeInterval'+ timeInterval)
+        logObject("Response Object: ", questionResponse)
         console.log('*****************************************')
         
         switch(mcqAnswer){
