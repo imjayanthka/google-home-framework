@@ -1,6 +1,3 @@
-const apiai = require("apiai"); 
-
-const appli = apiai("c7d8de5955a74ef7897a5f729382a378");
 var Entities = require("./entities");
 var schema = require("./schema");
 var _ = require("lodash");
@@ -11,7 +8,7 @@ var _ = require("lodash");
 
 var Question = function (data){
     this.data = this.sanitize(data);
-    console.log(this.data)
+    // console.log(this.data)
     this.numberOfQuestions = this.data.survey.length;
     this.data.question  = this.data.survey[this.data.currentSession.currentIndex]
 }
@@ -40,13 +37,32 @@ Question.prototype.setData = function(data){
     return
 }
 
-Question.prototype.firstQuestion = function(){
-    this.data.question = this.data.survey[this.data.currentSession.currentIndex]
-    return this.returnTitle()
+Question.prototype.firstQuestion = function(obj){
+    let entity = new Entities({ sessionId: this.data.currentSession.sessionId })
+    var returnValue = new Promise(function(resolve, reject){
+        // console.log("Promise Started")
+        entity.setupNavigationEntity()
+            .then(function (response) {
+                // console.log(obj.data.question)
+                // console.log('****************')
+                obj.data.question = obj.data.survey[obj.data.currentSession.currentIndex]
+                 resolve(obj.returnTitle())
+            })
+            .catch(function (error) {
+                reject(error)
+            })
+    })
+    return returnValue
 }
 
 Question.prototype.nextQuestion = function(){
+    console.log("Next")
     //Change in session information
+    if(this.data.currentSession.currentIndex >= (this.numberOfQuestions -  1)){
+        return new Promise(function(resolve, reject){
+            resolve("You reached the end of the survey")
+        })
+    }
     this.data.currentSession.prevIndex = this.data.currentSession.currentIndex;
     this.data.currentSession.currentIndex++;
     this.data.question = this.data.survey[this.data.currentSession.currentIndex]
@@ -55,19 +71,28 @@ Question.prototype.nextQuestion = function(){
 }
 
 Question.prototype.skipQuestion = function(quesiton){
-    return this.next();
+    console.log("Skip")
+    return this.nextQuestion();
 }
 
 Question.prototype.backQuestion = function(quesiton){
+    console.log("Back")
+    if (this.data.currentSession.prevIndex <= 0) {
+        return new Promise(function (resolve, reject) {
+            resolve("You can't go back on the first question")
+        })
+    }
     this.data.currentSession.currentIndex = this.data.currentSession.prevIndex;
     this.data.currentSession.prevIndex--;
-    this.data.quesiton = this.data.survey[this.data.currentSession.currentIndex]
+    this.data.question = this.data.survey[this.data.currentSession.currentIndex]
+    console.log(this.data)
     //return promise
     return this.returnTitle()
 }
 
 Question.prototype.repeatQuestion = function(){
     //No change in session information
+    console.log("Repeat")
     return this.returnTitle()
 }
 
@@ -75,23 +100,24 @@ Question.prototype.repeatQuestion = function(){
 //For multiple select options.
 Question.prototype.doneQuestion = function(quesiton){
     //Save the MCQ response as the 
+    console.log("Done")
     return this.returnTitle()
 }
 
 Question.prototype.returnTitle = function(){
     if (this.data != undefined) {
         let questionData = this.getData(null);
-        console.log(this.getData())
+        // console.log(this.getData())
         //Give the next question and also setups anything required for the session.
         switch (questionData.question.type) {
             case "MultipleChoice":
                 //Need to update entities
                 // Create a new promise
-                console.log("current session: " + questionData.currentSession.sessionId)
+                // console.log("current session: " + questionData.currentSession.sessionId)
                 var data = new Entities({ sessionId: questionData.currentSession.sessionId });
                 data.addMCQEntries(questionData.question.choices)
                 //returns a promise
-                return data.saveUserEntities(appli, data, questionData.question);
+                return data.saveUserEntities(questionData.question);
                 break;
             case "Scale":
                 return new Promise(function (resolve, reject) {
@@ -134,8 +160,6 @@ Question.prototype.returnTitle = function(){
             resolve("Thank You for participating in the survey")
         })
     }
-
-
 }
 
 module.exports = Question;

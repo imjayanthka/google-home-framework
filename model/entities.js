@@ -1,3 +1,6 @@
+const apiai = require("apiai");
+
+const appli = apiai("c7d8de5955a74ef7897a5f729382a378");
 var schema = require("./schema.js");
 var _ = require("lodash");
 
@@ -37,11 +40,11 @@ Entities.prototype.getData = function (){
     return this.data;
 }
 
-Entities.prototype.saveUserEntities = function (apiai, entity, question) {
+Entities.prototype.saveUserEntities = function (question) {
+    let data = this.getData()
     var returnPromise =  new Promise(function(resolve, reject){
-        let data = entity.getData()
         console.log(data)
-        let user_entities_request = apiai.userEntitiesRequest(data)
+        let user_entities_request = appli.userEntitiesRequest(data)
         user_entities_request.on("response", (response) => {
             console.log("I am all done");
             resolve(question.title)
@@ -54,6 +57,27 @@ Entities.prototype.saveUserEntities = function (apiai, entity, question) {
     })
     return returnPromise
 }
+
+
+Entities.prototype.setupNavigationEntity = function(){
+    let data = this.getData()
+   var returnPromise = new Promise(function(resolve, reject){
+       data.entities[0].entries = schema.entries
+       console.log(data)
+       let user_entities_request = appli.userEntitiesRequest(data)
+       user_entities_request.on("response", (response) => {
+           console.log("Setup navigation entities")
+           resolve("sucess")
+       })
+       user_entities_request.on("error", (err) => {
+           console.log('Error: '+ err.toString())
+           reject("Error")
+       })
+       user_entities_request.end()
+   }) 
+   return returnPromise;
+}
+
 
 
 module.exports = Entities;

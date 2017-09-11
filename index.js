@@ -127,7 +127,7 @@ app.post('/', function (req, res, next) {
     // webhook requests coming from API.AI by clicking the Logs button the sidebar.
     // logObject('Request headers: ', req.headers);
     // logObject('Request body: ', req.body);
-    console.log("Session id in session: "+currentSession.sessionId)
+    // console.log("Session id in session: "+currentSession.sessionId)
     console.log("Session id from api.ai: "+req.body.sessionId)
    
     // Checking for session error.
@@ -136,7 +136,7 @@ app.post('/', function (req, res, next) {
             currentSession.sessionId = req.body.sessionId
         }
     }
-    console.log("Session id in session: "+currentSession.sessionId)
+    // console.log("Session id in session: "+currentSession.sessionId)
     // Instantiate a new API.AI assistant object.
     const assistant = new ApiAiAssistant({ request: req, response: res });
 
@@ -149,87 +149,6 @@ app.post('/', function (req, res, next) {
     const YES_NO_RESPONSE = 'yesNoResponse' // An API.ai parameter name
     const MCQ_RESPONSE = 'mcq-entity'
     const TIME_INTERVAL = 'timeInterval'
-
-    function nextQuestion(currentSession, appli, context) {
-        var question;
-        if(context == "next"){
-           question = easy.shift()
-            currentSession.currentQuestion  = question;
-        } else {
-            question = currentSession.currentQuestion;
-        }
-        if(question != undefined){
-            //Give the next question and also setups anything required for the session.
-            switch (question.type) {
-                case "MultipleChoice":
-                    //Need to update entities
-                    // Create a new promise
-                    console.log("current session: " + currentSession.sessionId)
-                    var data = new Entities({sessionId: currentSession.sessionId});
-                    data.addMCQEntries(question.choices)
-                    return data.saveUserEntities(appli, data, question);
-                    break;
-                case "Scale":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                case "textSlide":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                case "timeInt":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                case "dateTime":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                case "textField":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                case "yesNo":
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    })
-                    break;
-                default:
-                    return new Promise(function (resolve, reject) {
-                        resolve(question.title)
-                    });
-            }
-        } else { 
-            return new Promise(function (resolve, reject) {
-                resolve("Thank You for participating in the survey")
-            })
-        }
-    }
-
-    function getUserEntities(sessionId, queryString){
-        var entities = new Promise(function (resolve, reject) {
-            var options = {
-                sessionId: req.body.sessionId
-            };
-            var requestEntity = appli.textRequest(queryString, options);
-            requestEntity.on('response', (response) => function (response) {
-                resolve(response)
-            })
-            requestEntity.on('error', (err) => function (err) {
-                reject(err)
-            })
-            requestEntity.end();
-        }) 
-        return entities 
-    }
-
-    function deleteUserEntities(sessionId){
-    }
 
 
 
@@ -251,7 +170,7 @@ app.post('/', function (req, res, next) {
         
         switch(mcqAnswer){
             case "Repeat":
-                question.repeatQuestion
+                question.repeatQuestion()
                     .then(function (toTell) {
                         console.log('To tell: Repeat: ' + toTell)
                         assistant.tell(toTell)
@@ -308,60 +227,32 @@ app.post('/', function (req, res, next) {
                         assistant.tell("Something went wrong")
                     })
                 break;
-        }
-        // question.nextQuestion()
-        //     .then(function (toTell) {
-        //         currentSession = question.getData("currentSession")
-        //         assistant.tell(toTell)
-        //     })
-        //     .catch(function (error) {
-        //         console.log(error)
-        //         assistant.tell("Something went wrong")
-        //     })
-        //Based on the answer
-        // if(mcqAnswer == "repeat"){
-        //     nextQuestion(currentSession, appli, "repeat")
-        //     .then(function(toTell){
-        //         console.log('To tell: ' + toTell)
-        //         assistant.tell(toTell)
-        //     })
-        //     .catch(function(err){
-        //         console.log(err)
-        //         assistant.tell("Something went wrong")
-        //     })                          
-        // } else {
-        //     //Next question string
-        //     nextQuestion(currentSession, appli, "next")
-        //     .then(function(toTell){
-        //         console.log('To tell: ' + toTell)
-        //         assistant.tell(toTell)
-        //     })
-        //     .catch(function(error){
-        //         console.log(error)
-        //         assistant.tell("Something went wrong")
-        //     })
-        // }
-        
+        }   
     }
 
     function welcomeIntent(assistant){
         console.log('Handling Action: Welcome Intent')
         //Define session variables
         currentSession.currentIndex = 0;
-        currentSession.prevIndex = null;
+        currentSession.prevIndex = -1;
         //Create new question object
         question = new Question({currentSession: currentSession, survey: easy})
-
-        //Need to return session
-        question.firstQuestion()
-            .then(function (toTell){
+        //Setup User Entities for Repeat, Skip, Done, Back and Next
+        
+        //returns a promise
+        question.firstQuestion(question)
+            .then(function (toTell) {
+                console.log(toTell)
                 currentSession = question.getData("currentSession")
                 assistant.tell(toTell)
             })
-            .catch(function (err){
+            .catch(function (err) {
                 console.log(err)
                 assistant.tell("Hey something went wrong.")
             })
+
+
+        //Need to return session
     }
 
 
