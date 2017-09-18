@@ -126,7 +126,7 @@ app.post('/', function (req, res, next) {
     // Log the request headers and body, to aide in debugging. You'll be able to view the
     // webhook requests coming from API.AI by clicking the Logs button the sidebar.
     // logObject('Request headers: ', req.headers);
-    // logObject('Request body: ', req.body);
+    logObject('Request body: ', req.body);
     console.log("+==============++==============+")
     console.log("Session id in session: "+currentSession.sessionId)
     //Body id keeps changing
@@ -180,7 +180,7 @@ app.post('/', function (req, res, next) {
         // console.log(question)
         question.navigation(questionResponse)
             .then(function(toTell){
-                assistant.tell(toTell)
+                assistant.ask(toTell)
             })  
             .catch(function(error){
                 logObject("Error Object: ", error)
@@ -203,7 +203,7 @@ app.post('/', function (req, res, next) {
                 // console.log("********************")
                 // console.log(toTell)
                 currentSession = question.getData("currentSession")
-                assistant.tell(toTell)
+                assistant.ask(toTell)
             })
             .catch(function (err) {
                 console.log(err)
