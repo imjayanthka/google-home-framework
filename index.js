@@ -209,8 +209,6 @@ app.post('/', function (req, res, next) {
                 console.log(err)
                 assistant.tell("Hey something went wrong.")
             })
-
-
         //Need to return session
     }
 
