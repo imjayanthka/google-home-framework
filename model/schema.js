@@ -30,6 +30,7 @@ var schema = {
     questionData: {
         currentSession: null, 
         survey: null, 
+        responses: {},
         question:{
             choices: null,
             conditionID: null,

@@ -33,6 +33,7 @@ Entities.prototype.addMCQEntries = function (choices) {
         this.data.entities[0].entries =  entries
         return;
     }
+    console.log(this.data.entities[0])
     return;
 }
 
@@ -43,9 +44,10 @@ Entities.prototype.getData = function (){
 Entities.prototype.saveUserEntities = function (question) {
     let data = this.getData()
     var returnPromise =  new Promise(function(resolve, reject){
-        console.log(data)
+        // console.log(data)
         let user_entities_request = appli.userEntitiesRequest(data)
         user_entities_request.on("response", (response) => {
+
             console.log("I am all done");
             resolve(question.title)
         });
@@ -60,10 +62,11 @@ Entities.prototype.saveUserEntities = function (question) {
 
 
 Entities.prototype.setupNavigationEntity = function(){
-    let data = this.getData()
+    var data = this.getData()
    var returnPromise = new Promise(function(resolve, reject){
        data.entities[0].entries = schema.entries
-       console.log(data)
+    //    console.log("#############")
+    //    console.log(data)
        let user_entities_request = appli.userEntitiesRequest(data)
        user_entities_request.on("response", (response) => {
            console.log("Setup navigation entities")

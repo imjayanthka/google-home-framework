@@ -25,6 +25,13 @@ const app = express();
 
 const survey = [{
     "conditionID": "",
+    "id": "q5",
+    "on": "",
+    "subtitle": "",
+    "title": "Time int",
+    "type": "timeInt"
+}, {
+    "conditionID": "",
     "id": "yesno1",
     "on": "",
     "subtitle": "",
@@ -59,13 +66,6 @@ const survey = [{
     "subtitle": "",
     "title": "What is the star date",
     "type": "dateTime"
-}, {
-    "conditionID": "",
-    "id": "q5",
-    "on": "",
-    "subtitle": "",
-    "title": "Time int",
-    "type": "timeInt"
 }, {
     "conditionID": "",
     "id": "asdfa",
@@ -127,14 +127,21 @@ app.post('/', function (req, res, next) {
     // webhook requests coming from API.AI by clicking the Logs button the sidebar.
     // logObject('Request headers: ', req.headers);
     // logObject('Request body: ', req.body);
-    // console.log("Session id in session: "+currentSession.sessionId)
-    console.log("Session id from api.ai: "+req.body.sessionId)
-   
-    // Checking for session error.
+    console.log("+==============++==============+")
+    console.log("Session id in session: "+currentSession.sessionId)
+    //Body id keeps changing
+    console.log("Request body id: " + req.body.id)
+    console.log("Session id from api.ai: " + req.body.sessionId)
+    console.log("+==============++==============+")
+    // Checking for session error. and updating the session to match conversation ID
     if(!currentSession.sessionId){
         if(currentSession.sessionId != req.body.sessionId){
             currentSession.sessionId = req.body.sessionId
         }
+    } else {
+        if (currentSession.sessionId != req.body.sessionId) {
+            currentSession.sessionId = req.body.sessionId
+        } 
     }
     // console.log("Session id in session: "+currentSession.sessionId)
     // Instantiate a new API.AI assistant object.
@@ -154,86 +161,31 @@ app.post('/', function (req, res, next) {
     const DATE_RESPONSE = 'date'
     const NUM_RESPONSE = 'number'
 
-
-
-
-
-
     // Create functions to handle intents here
     function yesNoAnswer(assistant) {
         console.log('Handling action: ' + YES_NO_ANSWER);
-        let questionResponse = {};
+         let questionResponse = {};
          questionResponse.yesNoAnswer = assistant.getArgument(YES_NO_RESPONSE);
          questionResponse.mcqAnswer = assistant.getArgument(MCQ_RESPONSE);
          questionResponse.timeInterval = assistant.getArgument(TIME_INTERVAL);
          questionResponse.dateResponse = assistant.getArgument(DATE_RESPONSE);
          questionResponse.timeResponse = assistant.getArgument(TIME_REPSONSE);
-         questionResponse.numberResponse = assistant.getArgument(NUM_RESPONSE)
+         questionResponse.numberResponse = assistant.getArgument(NUM_RESPONSE);
+         questionResponse.textResponse = assistant.getArgument(TEXT_RESPONSE)
 
-        console.log('ID' + req.body.sessionId)
-        logObject("Response Object: ", questionResponse)
-        console.log('*****************************************')
-        
-        switch(mcqAnswer){
-            case "Repeat":
-                question.repeatQuestion()
-                    .then(function (toTell) {
-                        console.log('To tell: Repeat: ' + toTell)
-                        assistant.tell(toTell)
-                    })
-                    .catch(function (err) {
-                        console.log(err)
-                        assistant.tell("Something went wrong")
-                    })
-                break;
-            case "Back":
-                // I need to index for get which question in array.
-                question.backQuestion()
-                    .then(function (toTell) {
-                        console.log('To tell: Back: ' + toTell)
-                        assistant.tell(toTell)
-                    })
-                    .catch(function (error) {
-                        console.log(error)
-                        assistant.tell("Something went wrong")
-                    })
-                break;
-            case "Skip":
-                question.skipQuestion()
-                    .then(function (toTell) {
-                        console.log('To tell: Skip: ' + toTell)
-                        assistant.tell(toTell)
-                    })
-                    .catch(function (error) {
-                        console.log(error)
-                        assistant.tell("Something went wrong")
-                    })
-                break;
-            case "Done":
-                question.doneQuestion(currentSession, appli, "done")
-                    .then(function (toTell) {
-                        console.log('To tell: Done: ' + toTell)
-                        assistant.tell(toTell)
-                    })
-                    .catch(function (error) {
-                        console.log(error)
-                        assistant.tell("Something went wrong")
-                    })
-                
-                break;
-            default:
-                question.nextQuestion()
-                    .then(function (toTell) {
-                        console.log('To tell: default: ' + toTell)
-                        currentSession = question.getData("currentSession")
-                        assistant.tell(toTell)
-                    })
-                    .catch(function (error) {
-                        console.log(error)
-                        assistant.tell("Something went wrong")
-                    })
-                break;
-        }   
+        // console.log('ID' + req.body.sessionId)
+        // logObject("Response Object: ", questionResponse)
+        // console.log('*****************************************')
+        //Function to validate answers
+        // console.log(question)
+        question.navigation(questionResponse)
+            .then(function(toTell){
+                assistant.tell(toTell)
+            })  
+            .catch(function(error){
+                logObject("Error Object: ", error)
+                assistant.tell("Something went wrong somewhere.")
+            })
     }
 
     function welcomeIntent(assistant){
@@ -242,13 +194,14 @@ app.post('/', function (req, res, next) {
         currentSession.currentIndex = 0;
         currentSession.prevIndex = -1;
         //Create new question object
-        question = new Question({currentSession: currentSession, survey: easy})
+        question = new Question({currentSession: currentSession, survey: survey})
         //Setup User Entities for Repeat, Skip, Done, Back and Next
         
         //returns a promise
         question.firstQuestion(question)
             .then(function (toTell) {
-                console.log(toTell)
+                // console.log("********************")
+                // console.log(toTell)
                 currentSession = question.getData("currentSession")
                 assistant.tell(toTell)
             })

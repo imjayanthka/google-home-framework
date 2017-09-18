@@ -20,8 +20,8 @@ Question.prototype.numberOfQuestions = null;
 Question.prototype.sanitize= function (data){
     data = data || {}
     //Should create Schema of data required
-    let quesitonData = schema.questionData
-    return _.pick(_.defaults(data, quesitonData), _.keys(quesitonData));
+    let questionData = schema.questionData
+    return _.pick(_.defaults(data, questionData), _.keys(questionData));
 }
 
 
@@ -44,9 +44,9 @@ Question.prototype.firstQuestion = function(obj){
         entity.setupNavigationEntity()
             .then(function (response) {
                 // console.log(obj.data.question)
-                // console.log('****************')
+                console.log('****************')
                 obj.data.question = obj.data.survey[obj.data.currentSession.currentIndex]
-                 resolve(obj.returnTitle())
+                resolve(obj.returnTitle())
             })
             .catch(function (error) {
                 reject(error)
@@ -57,6 +57,7 @@ Question.prototype.firstQuestion = function(obj){
 
 Question.prototype.nextQuestion = function(){
     console.log("Next")
+    // console.log(this.data.currentSession)
     //Change in session information
     if(this.data.currentSession.currentIndex >= (this.numberOfQuestions -  1)){
         return new Promise(function(resolve, reject){
@@ -70,12 +71,12 @@ Question.prototype.nextQuestion = function(){
     return this.returnTitle()   
 }
 
-Question.prototype.skipQuestion = function(quesiton){
+Question.prototype.skipQuestion = function(){
     console.log("Skip")
     return this.nextQuestion();
 }
 
-Question.prototype.backQuestion = function(quesiton){
+Question.prototype.backQuestion = function(){
     console.log("Back")
     if (this.data.currentSession.prevIndex <= 0) {
         return new Promise(function (resolve, reject) {
@@ -90,21 +91,21 @@ Question.prototype.backQuestion = function(quesiton){
     return this.returnTitle()
 }
 
-Question.prototype.repeatQuestion = function(){
+Question.prototype.repeatQuestion = function(options){
     //No change in session information
     console.log("Repeat")
-    return this.returnTitle()
+    return this.returnTitle(options)
 }
 
 
 //For multiple select options.
-Question.prototype.doneQuestion = function(quesiton){
+Question.prototype.doneQuestion = function(){
     //Save the MCQ response as the 
     console.log("Done")
     return this.returnTitle()
 }
 
-Question.prototype.returnTitle = function(){
+Question.prototype.returnTitle = function(options){
     if (this.data != undefined) {
         let questionData = this.getData(null);
         // console.log(this.getData())
@@ -115,6 +116,7 @@ Question.prototype.returnTitle = function(){
                 // Create a new promise
                 // console.log("current session: " + questionData.currentSession.sessionId)
                 var data = new Entities({ sessionId: questionData.currentSession.sessionId });
+                console.log('Choices: ' + questionData.question.choices)
                 data.addMCQEntries(questionData.question.choices)
                 //returns a promise
                 return data.saveUserEntities(questionData.question);
@@ -130,8 +132,17 @@ Question.prototype.returnTitle = function(){
                 })
                 break;
             case "timeInt":
+                // console.log('Time int')
                 return new Promise(function (resolve, reject) {
-                    resolve(questionData.question.title)
+                    // console.log(options)
+                    let toTell = ""
+                    if (options === "NO_EXPECTED_RESPONSE"){
+                        // console.log('Inside the if')
+                        toTell = "Sorry your answer doesn't match the required answer. Your question was, "+ questionData.question.title;
+                    } else {
+                        toTell = questionData.question.title   
+                    }
+                    resolve(toTell)
                 })
                 break;
             case "dateTime":
@@ -159,6 +170,90 @@ Question.prototype.returnTitle = function(){
         return new Promise(function (resolve, reject) {
             resolve("Thank You for participating in the survey")
         })
+    }
+}
+
+
+Question.prototype.navigation = function(responses){
+    // console.log(responses)
+    switch (responses.mcqAnswer ? responses.mcqAnswer.toUpperCase() : ""){
+        case "NEXT":
+            return this.nextQuestion();
+        case "REPEAT":
+            return this.repeatQuestion();
+            break;
+        case "BACK":
+            // I need to index for get which question in array.
+            return this.backQuestion();
+            break;
+        case "SKIP":
+            return this.skipQuestion()
+            break;
+        case "DONE":
+            return this.doneQuestion()
+            break;
+        default:
+            return this.validateResponse(responses)
+            break;
+    }
+}
+
+
+//Function should return a promise to function properly
+Question.prototype.validateResponse = function(responses){
+    console.log("validating responses")
+    let qtype = this.data.question.type;
+    let qid = this.data.question.id;
+    switch(qtype){
+        case "YesNo": 
+            return this.nextQuestion()
+            break;
+        case "MultipleChoice":
+            // if(response.mcqResponse != null){
+               
+            // } else {
+
+            // }
+            return this.nextQuestion()
+            break;
+        case "dateTime":
+            // if (!responses.dateResponse || !responses.timeResponse){
+
+            // } else {
+
+            // }
+            return this.nextQuestion()
+            break;
+        case "timeInt":
+            if (responses.timeInterval){
+                // console.log(responses.timeInterval)
+                //amount and unit
+                this.data.responses[qid] = responses.timeInterval
+                return this.nextQuestion()
+            } else {
+                // console.log("Repeating Time Interval question")
+                //Need to repeat the question if didnt get the response
+                return this.repeatQuestion("NO_EXPECTED_RESPONSE")
+            }
+            break;
+        case "Scale":
+            // if(responses.scaleResponse){
+
+            // } else {
+            //     console.log("Repeating Scale Question")
+            //     return this.repeatQuestion("NO_EXPECTED_RESPONSE")
+            // }
+            return this.nextQuestion()
+            break;
+        case "textField":
+            return this.nextQuestion()
+            break;
+        case "textSlide":
+            return this.nextQuestion()
+            break;
+        default:
+            return this.nextQuestion()
+            break;
     }
 }
 
