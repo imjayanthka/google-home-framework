@@ -206,6 +206,11 @@ Question.prototype.validateResponse = function(responses){
     let qid = this.data.question.id;
     switch(qtype){
         case "YesNo": 
+            if(responses.yesNoAnswer){
+                this.data.responses[qid] = responses.yesNoAnswer
+            } else {
+                return this.repeatQuestion("NO_EXPECTED_RESPONSE")
+            }
             return this.nextQuestion()
             break;
         case "MultipleChoice":
@@ -217,11 +222,25 @@ Question.prototype.validateResponse = function(responses){
             return this.nextQuestion()
             break;
         case "dateTime":
-            // if (!responses.dateResponse || !responses.timeResponse){
+            if (!responses.dateResponse || !responses.timeResponse){
+                if(!responses.dateResponse){
 
-            // } else {
+                    if(!responses.timeResponse){
 
-            // }
+                    }
+                } else {
+                    //Available Date Response.
+                }
+                if(!responses.timeResponse){
+
+                    if(!responses.dateResponse){
+                        
+                    }
+                }
+            } else {
+                //When both are avialable.
+                // Check the question requriement.
+            }
             return this.nextQuestion()
             break;
         case "timeInt":
@@ -237,12 +256,13 @@ Question.prototype.validateResponse = function(responses){
             }
             break;
         case "Scale":
-            // if(responses.scaleResponse){
-
-            // } else {
-            //     console.log("Repeating Scale Question")
-            //     return this.repeatQuestion("NO_EXPECTED_RESPONSE")
-            // }
+            if(responses.scaleResponse){
+                this.data.responses[qid] = responses.timeInterval
+                return this.nextQuestion()
+            } else {
+                console.log("Repeating Scale Question")
+                return this.repeatQuestion("NO_EXPECTED_RESPONSE")
+            }
             return this.nextQuestion()
             break;
         case "textField":
