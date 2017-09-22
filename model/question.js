@@ -2,8 +2,13 @@ var Entities = require("./entities");
 var schema = require("./schema");
 var _ = require("lodash");
 
+/*
 
-
+    REPEAT OPTIONS: 
+        NO_EXPECTED_RESPONSE
+        NO_TIME_AVAILABLE
+        NO_DATE_AVAILABLE
+*/ 
 
 
 var Question = function (data){
@@ -99,12 +104,30 @@ Question.prototype.repeatQuestion = function(options){
 
 
 //For multiple select options.
-Question.prototype.doneQuestion = function(){
+Question.prototype.doneQuestion = function(responses){
     //Save the MCQ response as the 
     console.log("Done")
-    return this.returnTitle()
+    //Validate Responses
+    return this.validateResponse(responses)
 }
 
+//For responding with options:
+Question.prototype.optionsQuestion = function(){
+    let questionData = this.getData(null)
+    if(questionData.question.type === "MultipleChoice"){
+        //Return a promise with choices
+        return new Promise(function (resolve, reject) {
+             let returnStr = "Your options are "+ questionData.question.choices.join(',')
+             resolve(returnStr)
+        })
+    } 
+    return new Promise(function (resolve, reject) {
+        let returnStr = "Not a multiple choice question"
+        resolve(returnStr)
+    }) 
+}
+
+//TODO: Add options for MCQ DateTime options
 Question.prototype.returnTitle = function(options){
     if (this.data != undefined) {
         let questionData = this.getData(null);
@@ -123,7 +146,14 @@ Question.prototype.returnTitle = function(options){
                 break;
             case "Scale":
                 return new Promise(function (resolve, reject) {
-                    resolve(questionData.question.title)
+                    let toTell = "";
+                    let scaleQuestionFormat = "On a scale of 1 to "+questionData.question.choices.length+", "
+                    if(options === "NO_EXPECTED_RESPONSE"){
+                        toTell = "Sorry your answer doesn't match the required answer. Your question was, " + scaleQuestionFormat + "" + questionData.question.title
+                    } else {
+                        toTell = scaleQuestionFormat + "" + questionData.question.title
+                    }
+                    resolve(toTell)
                 })
                 break;
             case "textSlide":
@@ -157,7 +187,13 @@ Question.prototype.returnTitle = function(options){
                 break;
             case "yesNo":
                 return new Promise(function (resolve, reject) {
-                    resolve(questionData.question.title)
+                    let toTell = ""
+                    if(options === "NO_EXPECTED_RESPONSE") {
+                        toTell = "It's easier for you to answer in yes and no format. Your question was, " + questionData.question.title
+                    } else {
+                        toTell = questionData.question.title
+                    }
+                    resolve(toTell)
                 })
                 break;
             default:
@@ -173,10 +209,13 @@ Question.prototype.returnTitle = function(options){
     }
 }
 
-
+//TODO: Add a way to manage done and loop for mcq options
 Question.prototype.navigation = function(responses){
     // console.log(responses)
     switch (responses.mcqAnswer ? responses.mcqAnswer.toUpperCase() : ""){
+        case "OPTIONS":
+            return this.optionsQuestion();
+            break;
         case "NEXT":
             return this.nextQuestion();
         case "REPEAT":
@@ -190,7 +229,7 @@ Question.prototype.navigation = function(responses){
             return this.skipQuestion()
             break;
         case "DONE":
-            return this.doneQuestion()
+            return this.doneQuestion(responses)
             break;
         default:
             return this.validateResponse(responses)
@@ -213,35 +252,54 @@ Question.prototype.validateResponse = function(responses){
             }
             return this.nextQuestion()
             break;
+        //TODO: Save answers for mcq and loop through done for multi select
         case "MultipleChoice":
-            // if(response.mcqResponse != null){
-               
-            // } else {
+            if (this.data.question.choices.indexOf(responses.mcqAnswer) != -1){
+                this.data.responses[qid] = []
+                if(this.data.question.multipleSelect){
+                    //Do something here
+                    this.data.responses[qid].push(responses.mcqAnswer)
+                    //Check for done options
 
-            // }
-            return this.nextQuestion()
-            break;
-        case "dateTime":
-            if (!responses.dateResponse || !responses.timeResponse){
-                if(!responses.dateResponse){
+                    //Repeat till done
+                    this.repeatQuestion();
 
-                    if(!responses.timeResponse){
-
-                    }
                 } else {
-                    //Available Date Response.
-                }
-                if(!responses.timeResponse){
-
-                    if(!responses.dateResponse){
-                        
-                    }
+                    //Save data 
+                    this.data.responses[qid].push(responses.mcqAnswer)
+                    //Next question.
+                    return this.nextQuestion()
                 }
             } else {
-                //When both are avialable.
-                // Check the question requriement.
+                // Wrong answer
+                return this.repeatQuestion("NO_EXPECTED_RESPONSE")
             }
-            return this.nextQuestion()
+            break;
+        //TODO: Finish validation and saving data to data.responses
+        case "dateTime":
+            if(this.data.question.both){
+                //Need both date and time
+                if (responses.dateResponse && responses.timeResponse) {
+                    //Save response in proper format
+                    return this.nextQuestion()
+                } else {
+                    if(!responses.dateResponse && !responses.timeResponse)
+                        return this.repeatQuestion("NO_EXPECTED_RESPONSE")
+                    if(!responses.dateResponse)
+                        return this.repeatQuestion("NO_DATE_AVAILABLE")
+                    if(!responses.timeResponse)
+                        return this.repeatQuestion("NO_TIME_AVAILABLE")
+                }
+            } else {
+                //need just date
+                if(!responses.dateResponse)
+                    return this.repeatQuestion("NO_DATE_AVAILABLE")
+                else {
+                    // Store response in proper format
+                    return this.nextQuestion()
+                    
+                }
+            }
             break;
         case "timeInt":
             if (responses.timeInterval){
@@ -250,15 +308,20 @@ Question.prototype.validateResponse = function(responses){
                 this.data.responses[qid] = responses.timeInterval
                 return this.nextQuestion()
             } else {
-                // console.log("Repeating Time Interval question")
+                console.log("Repeating Time Interval question")
                 //Need to repeat the question if didnt get the response
                 return this.repeatQuestion("NO_EXPECTED_RESPONSE")
             }
             break;
         case "Scale":
-            if(responses.scaleResponse){
-                this.data.responses[qid] = responses.timeInterval
-                return this.nextQuestion()
+            if (responses.numberResponse){
+                if(this.data.question.choices.length < responses.numberResponse || responses.numberResponse <= 0){
+                    console.log("Repeating Scale Question")
+                    return this.repeatQuestion("NO_EXPECTED_RESPONSE")
+                } else {
+                    this.data.responses[qid] = responses.timeInterval
+                    return this.nextQuestion()
+                }
             } else {
                 console.log("Repeating Scale Question")
                 return this.repeatQuestion("NO_EXPECTED_RESPONSE")

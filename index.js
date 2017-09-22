@@ -8,6 +8,21 @@ const session = require('express-session')
 const Map = require('es6-map');
 const prettyjson = require('prettyjson');
 const toSentence = require('underscore.string/toSentence');
+// var passport = require('passport')
+// var GoogleStrategy = require('passport-google-oauth2').Strategy;
+
+// passport.use(new GoogleStrategy({
+//     clientID: GOOGLE_CLIENT_ID,
+//     clientSecret: GOOGLE_CLIENT_SECRET,
+//     callbackURL: "http://localhost:9100/auth/google/callback",
+//     passReqToCallback: true
+// },
+//     function (request, accessToken, refreshToken, profile, done) {
+//         User.findOrCreate({ googleId: profile.id }, function (err, user) {
+//             return done(err, user);
+//         });
+//     }
+// ));
 
 //Google and API.AI
 const ApiAiAssistant = require('actions-on-google').ApiAiAssistant;
@@ -25,54 +40,60 @@ const app = express();
 
 const survey = [{
     "conditionID": "",
-    "id": "q5",
+    "id": "PizzaYesNo",
     "on": "",
     "subtitle": "",
-    "title": "Time int",
-    "type": "timeInt"
-}, {
-    "conditionID": "",
-    "id": "yesno1",
-    "on": "",
-    "subtitle": "",
-    "title": "Yes no 1",
+    "title": "Do you like pizza?",
     "type": "yesNo"
 }, {
-    "id": "text1",
-    "subtitle": "",
-    "title": "Text 1",
-    "type": "textField"
-}, {
-    "choices": ["yellow", "red", "blue"],
+    "choices": ["Thin", "Thick", "Pan"],
     "conditionID": "",
-    "id": "mcq",
+    "id": "CrustMC",
     "multipleSelect": false,
     "on": "",
-    "subtitle": "fav",
-    "title": "fav",
+    "subtitle": "",
+    "title": "What is your favorite crust?",
     "type": "MultipleChoice"
 }, {
+    "both": false,
     "conditionID": "",
-    "id": "q1",
-    "on": "",
-    "subtitle": "",
-    "title": "Intro Slide",
-    "type": "textSlide"
-}, {
-    "both": true,
-    "id": "q2",
+    "id": "PizzaDateTime",
     "multiple": false,
-    "prior": false,
+    "on": "",
+    "prior": true,
     "subtitle": "",
-    "title": "What is the star date",
+    "title": "When did you eat your last pizza?",
     "type": "dateTime"
 }, {
     "conditionID": "",
-    "id": "asdfa",
-    "multipleSelect": "",
+    "id": "PizzaTextField",
     "on": "",
     "subtitle": "",
-    "title": "Range me",
+    "title": "What are your favorite toppings?",
+    "type": "textField"
+}, {
+    "choices": ["Marinara", "Alfredo", "Barbecue"],
+    "conditionID": "",
+    "id": "PizzaSelectMultiple",
+    "multipleSelect": false,
+    "on": "",
+    "subtitle": "Select all that apply.",
+    "title": "What kinds of sauce do you like?",
+    "type": "MultipleChoice"
+}, {
+    "conditionID": "",
+    "id": "PizzaTimeInt",
+    "on": "",
+    "subtitle": "",
+    "title": "How quickly can you eat a piece of pizza?",
+    "type": "timeInt"
+}, {
+    "choices": ["Very unsatisfied", "Unsatisfied", "Neutral", "Satisfied", "Very satisfied"],
+    "conditionID": "",
+    "id": "SatisfactionScale",
+    "on": "",
+    "subtitle": "",
+    "title": "How satisfied were you with this survey?",
     "type": "Scale"
 }]
 
@@ -180,9 +201,11 @@ app.post('/', function (req, res, next) {
         // console.log(question)
         question.navigation(questionResponse)
             .then(function(toTell){
+                currentSession = question.getData("currentSession")
                 assistant.ask(toTell)
             })  
             .catch(function(error){
+                currentSession = question.getData("currentSession")
                 logObject("Error Object: ", error)
                 assistant.tell("Something went wrong somewhere.")
             })
@@ -190,6 +213,14 @@ app.post('/', function (req, res, next) {
 
     function welcomeIntent(assistant){
         console.log('Handling Action: Welcome Intent')
+        // //Check if logged in
+        // if(assistant.getSignInStatus() === assistant.getSignInStatus.OK){
+        //     let accessToken = app.getUser.accessToken;
+        //     console.log(accessToken)
+        //     assistant.tell('Yeah got your access token')
+        // } else {
+        //     assistant.askForSignIn();
+        // }
         //Define session variables
         currentSession.currentIndex = 0;
         currentSession.prevIndex = -1;
@@ -203,6 +234,7 @@ app.post('/', function (req, res, next) {
                 // console.log("********************")
                 // console.log(toTell)
                 currentSession = question.getData("currentSession")
+                console.log("Returned Session id: "+ currentSession.sessionId)
                 assistant.ask(toTell)
             })
             .catch(function (err) {
@@ -223,6 +255,7 @@ app.post('/', function (req, res, next) {
     // Route requests to the proper handler functions via the action router.
     assistant.handleRequest(actionRouter);
 });
+
 
 // Handle errors.
 app.use(function (err, req, res, next) {

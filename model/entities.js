@@ -49,7 +49,8 @@ Entities.prototype.saveUserEntities = function (question) {
         user_entities_request.on("response", (response) => {
 
             console.log("I am all done");
-            resolve(question.title)
+            let str = " and your options are "+question.choices.join(',')
+            resolve(question.title + str)
         });
         user_entities_request.on('error', function (err) {
             console.log('Error' + err.toString());

@@ -9,7 +9,11 @@ var schema = {
     },
     entries: [{
         value: "Repeat",
-        synonyms: ["options", "repeat", "again"]
+        synonyms: ["repeat", "again"]
+    },
+    {
+        value: "Options",
+        synonyms: ["options", "choices"]
     },
     {
         value: "Done",
