@@ -8,121 +8,30 @@ const session = require('express-session')
 const Map = require('es6-map');
 const prettyjson = require('prettyjson');
 const toSentence = require('underscore.string/toSentence');
-// var passport = require('passport')
-// var GoogleStrategy = require('passport-google-oauth2').Strategy;
+const firebase = require('firebase')
 
-// passport.use(new GoogleStrategy({
-//     clientID: GOOGLE_CLIENT_ID,
-//     clientSecret: GOOGLE_CLIENT_SECRET,
-//     callbackURL: "http://localhost:9100/auth/google/callback",
-//     passReqToCallback: true
-// },
-//     function (request, accessToken, refreshToken, profile, done) {
-//         User.findOrCreate({ googleId: profile.id }, function (err, user) {
-//             return done(err, user);
-//         });
-//     }
-// ));
+var config = {
+    apiKey: "AIzaSyDCXmuzo8VIr0pKE9pSlLBFhOSnuwjgyVQ",
+    authDomain: "surveyapp-87ddd.firebaseapp.com",
+    databaseURL: "https://surveyapp-87ddd.firebaseio.com",
+    projectId: "surveyapp-87ddd",
+    storageBucket: "surveyapp-87ddd.appspot.com",
+    messagingSenderId: "698556221027"
+  };
+firebase.initializeApp(config);
 
 //Google and API.AI
-const ApiAiAssistant = require('actions-on-google').ApiAiAssistant;
+const DialogflowApp = require('actions-on-google').DialogflowApp;
 // const apiai = require("apiai"); 
 const bodyParser = require('body-parser');
 
 //Models
 const Entities = require("./model/entities.js");
-const Question = require("./model/question")
+const Question = require("./model/question");
+const db = require("./model/db");
 
 // init project
 const app = express();
-//c7d8de5955a74ef7897a5f729382a378
-// const appli = apiai("c7d8de5955a74ef7897a5f729382a378");
-
-const survey = [{
-    "conditionID": "",
-    "id": "PizzaYesNo",
-    "on": "",
-    "subtitle": "",
-    "title": "Do you like pizza?",
-    "type": "yesNo"
-}, {
-    "choices": ["Thin", "Thick", "Pan"],
-    "conditionID": "",
-    "id": "CrustMC",
-    "multipleSelect": false,
-    "on": "",
-    "subtitle": "",
-    "title": "What is your favorite crust?",
-    "type": "MultipleChoice"
-}, {
-    "both": false,
-    "conditionID": "",
-    "id": "PizzaDateTime",
-    "multiple": false,
-    "on": "",
-    "prior": true,
-    "subtitle": "",
-    "title": "When did you eat your last pizza?",
-    "type": "dateTime"
-}, {
-    "conditionID": "",
-    "id": "PizzaTextField",
-    "on": "",
-    "subtitle": "",
-    "title": "What are your favorite toppings?",
-    "type": "textField"
-}, {
-    "choices": ["Marinara", "Alfredo", "Barbecue"],
-    "conditionID": "",
-    "id": "PizzaSelectMultiple",
-    "multipleSelect": false,
-    "on": "",
-    "subtitle": "Select all that apply.",
-    "title": "What kinds of sauce do you like?",
-    "type": "MultipleChoice"
-}, {
-    "conditionID": "",
-    "id": "PizzaTimeInt",
-    "on": "",
-    "subtitle": "",
-    "title": "How quickly can you eat a piece of pizza?",
-    "type": "timeInt"
-}, {
-    "choices": ["Very unsatisfied", "Unsatisfied", "Neutral", "Satisfied", "Very satisfied"],
-    "conditionID": "",
-    "id": "SatisfactionScale",
-    "on": "",
-    "subtitle": "",
-    "title": "How satisfied were you with this survey?",
-    "type": "Scale"
-}]
-
-const easy = [{
-    "conditionID": "",
-    "id": "yesno1",
-    "on": "",
-    "subtitle": "",
-    "title": "Yes no 1",
-    "type": "yesNo"
-}, {
-    "conditionID": "",
-    "id": "q5",
-    "on": "",
-    "subtitle": "",
-    "title": "Time int",
-    "type": "timeInt"
-}, {
-    "choices": ["yellow", "red", "blue"],
-    "conditionID": "",
-    "id": "mcq",
-    "multipleSelect": false,
-    "on": "",
-    "subtitle": "fav",
-    "title": "fav",
-    "type": "MultipleChoice"
-}]
-
-
 app.use(bodyParser.json({ type: 'application/json' }));
 
 // This boilerplate uses Express, but feel free to use whatever libs or frameworks
@@ -148,12 +57,12 @@ app.post('/', function (req, res, next) {
     // webhook requests coming from API.AI by clicking the Logs button the sidebar.
     // logObject('Request headers: ', req.headers);
     logObject('Request body: ', req.body);
-    console.log("+==============++==============+")
-    console.log("Session id in session: "+currentSession.sessionId)
-    //Body id keeps changing
-    console.log("Request body id: " + req.body.id)
-    console.log("Session id from api.ai: " + req.body.sessionId)
-    console.log("+==============++==============+")
+    // console.log("+==============++==============+")
+    // console.log("Session id in session: "+currentSession.sessionId)
+    // //Body id keeps changing
+    // console.log("Request body id: " + req.body.id)
+    // console.log("Session id from api.ai: " + req.body.sessionId)
+    // console.log("+==============++==============+")
     // Checking for session error. and updating the session to match conversation ID
     if(!currentSession.sessionId){
         if(currentSession.sessionId != req.body.sessionId){
@@ -166,11 +75,12 @@ app.post('/', function (req, res, next) {
     }
     // console.log("Session id in session: "+currentSession.sessionId)
     // Instantiate a new API.AI assistant object.
-    const assistant = new ApiAiAssistant({ request: req, response: res });
+    const assistant = new DialogflowApp({ request: req, response: res });
 
     // Declare constants for your action and parameter names
     const YES_NO_ANSWER = 'everything.action' // The action name from the API.AI intent
     const WELCOME_INTENT = 'input.welcome'
+    const OPTION_INTENT = 'option.select';
 
 
 
@@ -193,12 +103,6 @@ app.post('/', function (req, res, next) {
          questionResponse.timeResponse = assistant.getArgument(TIME_REPSONSE);
          questionResponse.numberResponse = assistant.getArgument(NUM_RESPONSE);
          questionResponse.textResponse = assistant.getArgument(TEXT_RESPONSE)
-
-        // console.log('ID' + req.body.sessionId)
-        // logObject("Response Object: ", questionResponse)
-        // console.log('*****************************************')
-        //Function to validate answers
-        // console.log(question)
         question.navigation(questionResponse)
             .then(function(toTell){
                 currentSession = question.getData("currentSession")
@@ -213,35 +117,99 @@ app.post('/', function (req, res, next) {
 
     function welcomeIntent(assistant){
         console.log('Handling Action: Welcome Intent')
-        // //Check if logged in
-        // if(assistant.getSignInStatus() === assistant.getSignInStatus.OK){
-        //     let accessToken = app.getUser.accessToken;
-        //     console.log(accessToken)
-        //     assistant.tell('Yeah got your access token')
-        // } else {
-        //     assistant.askForSignIn();
-        // }
         //Define session variables
-        currentSession.currentIndex = 0;
-        currentSession.prevIndex = -1;
-        //Create new question object
-        question = new Question({currentSession: currentSession, survey: survey})
-        //Setup User Entities for Repeat, Skip, Done, Back and Next
-        
-        //returns a promise
-        question.firstQuestion(question)
-            .then(function (toTell) {
-                // console.log("********************")
-                // console.log(toTell)
-                currentSession = question.getData("currentSession")
-                console.log("Returned Session id: "+ currentSession.sessionId)
-                assistant.ask(toTell)
-            })
-            .catch(function (err) {
-                console.log(err)
-                assistant.tell("Hey something went wrong.")
-            })
+        if(assistant.getUser()){
+            //User log in exsists
+            if(!firebase.auth().currentUser){
+                console.log('I come here')
+                firebase.auth().signInWithCustomToken(assistant.getUser().accessToken)
+                .then((user) => {
+                    db.getUserInformation(firebase.auth().currentUser.uid)
+                    .then((userInformation) => {
+                        console.log(userInformation)
+                        currentSession.userInformation =  userInformation;
+                        if(userInformation.taking) {
+                            db.takingSurveys(userInformation.taking)
+                            .then((surveys) => {
+                                console.log('Got the surveys back')
+                                console.log(surveys)
+                                currentSession.surveys = surveys
+                                // var options = []
+                                // for(let key in currentSession.surveys){
+                                //     options.push(assistant.buildOptionItem(key, [currentSession.surveys[key].name]).setTitle(currentSession.surveys[key].name))
+                                // }
+                                // console.log('Response sent')
+                                // assistant.askWithList('Welcome to TigerAware', assistant.buildList('Here are your survyes')
+                                // .addItems(options))
+                                console.log(assistant.hasSurfaceCapability(assistant.SurfaceCapabilities.SCREEN_OUTPUT))
+                                if(assistant.hasSurfaceCapability(assistant.SurfaceCapabilities.SCREEN_OUTPUT))
+                                    assistant.askWithList(assistant.buildRichResponse().addSimpleResponse('Welcome to Tiger Aware'), assistant.buildList('here are your choices').addItems(assistant.buildOptionItem('XYS', ["india", "indian"]).setTitle('India')))
+                                else
+                                    assistant.tell("Doesn't have a screen")
+                            })
+                            .catch((error) => {
+                                console.log(error)
+                                console.log('Someother shitty error')
+                                currentSession.surveys = null
+                                if(!currentSession.surveys) assistant.tell('There are currently no surveys you can take. Please come back for more')                                 
+                            })
+                        } else {
+                            console.log('this shitty error')
+                            currentSession.surveys = null
+                            if(!currentSession.surveys) assistant.tell('There are currently no surveys you can take. Please come back for more')                            
+                        }
+                    })
+                    .catch((error) => {
+                        currentSession.userInformation = null
+                        if(!currentSession.userInformation) assistant.tell('You are not a registered user. Please visit blah.com to register.')                                        
+                    }) 
+                })
+                .catch(function(error){
+                    assistant.tell("Login failed, Try again later")
+                }) 
+            }
+        } else {
+            assistant.askForSignIn()
+        }
+        // if(assistant.getUser()){
+        //     if(currentSession.surveys && currentSession.userInformation){
+        //         //Give him options to select a survey.
+        //         let surveysAvailable = assistant.buildList('Here are your surveys')
+        //         for(let key in currentSession.surveys){
+        //             let option = assistant.buildOptionItem(SELECTION_KEY_ONE, [currentSession.surveys[key].name]).setTitle(currentSession.surveys[key].name)
+        //             surveysAvailable.addItems(option)
+        //         }
+        //         assistant.askWithList('Welcome to TigerAware', surveysAvailable)
+        //     } else {
+        //         if(!currentSession.userInformation) assistant.tell('You are not a registered user. Please visit blah.com to register.')                
+        //         if(!currentSession.surveys) assistant.tell('There are currently no surveys you can take. Please come back for more')            
+        //     }
+        // } else {
+        //     assistant.askForSignIn()
+        // }
+        // currentSession.currentIndex = 0;
+        // currentSession.prevIndex = -1;
+        // //Create new question object
+        // question = new Question({currentSession: currentSession, survey: survey})
+        // //Setup User Entities for Repeat, Skip, Done, Back and Next
+        // //returns a promise
+        // question.firstQuestion(question)
+        //     .then(function (toTell) {
+        //         // console.log("********************")
+        //         // console.log(toTell)
+        //         currentSession = question.getData("currentSession")
+        //         console.log("Returned Session id: "+ currentSession.sessionId)
+        //         assistant.ask(toTell)
+        //     })
+        //     .catch(function (err) {
+        //         console.log(err)
+        //         assistant.tell("Hey something went wrong.")
+        //     })
         //Need to return session
+    }
+
+    function optionIntent(assistant){
+        assistant.tell(assistant.getSelectedOption())
     }
 
 
@@ -251,6 +219,7 @@ app.post('/', function (req, res, next) {
     // Mapping Intents to Functions.
     actionRouter.set(YES_NO_ANSWER, yesNoAnswer);
     actionRouter.set(WELCOME_INTENT, welcomeIntent);
+    actionRouter.set(OPTION_INTENT, optionIntent);
 
     // Route requests to the proper handler functions via the action router.
     assistant.handleRequest(actionRouter);
@@ -270,7 +239,7 @@ function logObject(message, object, options) {
 }
 
 // Listen for requests.
-let server = app.listen(9100, function () {
+let server = app.listen(9101, function () {
     console.log('Your app is listening on port ' + server.address().port);
 });
 

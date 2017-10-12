@@ -10,17 +10,16 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "actions-on-google": "^1.0.4",
+    "actions-on-google": "^1.5.0",
     "apiai": "^4.0.3",
-    "body-parser": "^1.15.2",
+    "body-parser": "^1.18.2",
     "es6-map": "^0.1.4",
-    "express": "^4.14.0",
-    "express-session": "^1.15.5",
+    "express": "^4.16.2",
+    "express-session": "^1.15.6",
+    "firebase": "^4.5.0",
     "lodash": "^4.17.4",
-    "passport": "^0.4.0",
-    "passport-google-oauth": "^1.0.0",
     "prettyjson": "^1.2.1",
-    "request": "^2.79.0",
+    "request": "^2.83.0",
     "underscore.string": "^3.3.4"
   },
   "engines": {

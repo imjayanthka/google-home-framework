@@ -117,7 +117,7 @@ Question.prototype.optionsQuestion = function(){
     if(questionData.question.type === "MultipleChoice"){
         //Return a promise with choices
         return new Promise(function (resolve, reject) {
-             let returnStr = "Your options are "+ questionData.question.choices.join(',')
+             let returnStr = "Your options are "+ questionData.question.choices.join(', ')
              resolve(returnStr)
         })
     } 
