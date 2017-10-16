@@ -43,6 +43,7 @@ app.use(express.static('public'));
 app.use(session({secret: "shhhshshhssh"}))
 var currentSession;
 var question;
+var userSurvyes;
 
 
 // http://expressjs.com/en/starter/basic-routing.html
@@ -73,7 +74,7 @@ app.post('/', function (req, res, next) {
             currentSession.sessionId = req.body.sessionId
         } 
     }
-    // console.log("Session id in session: "+currentSession.sessionId)
+   
     // Instantiate a new API.AI assistant object.
     const assistant = new DialogflowApp({ request: req, response: res });
 
@@ -117,35 +118,32 @@ app.post('/', function (req, res, next) {
 
     function welcomeIntent(assistant){
         console.log('Handling Action: Welcome Intent')
+        console.log("*********************************")
         //Define session variables
         if(assistant.getUser()){
             //User log in exsists
             if(!firebase.auth().currentUser){
-                console.log('I come here')
                 firebase.auth().signInWithCustomToken(assistant.getUser().accessToken)
                 .then((user) => {
                     db.getUserInformation(firebase.auth().currentUser.uid)
                     .then((userInformation) => {
-                        console.log(userInformation)
                         currentSession.userInformation =  userInformation;
                         if(userInformation.taking) {
                             db.takingSurveys(userInformation.taking)
                             .then((surveys) => {
-                                console.log('Got the surveys back')
-                                console.log(surveys)
                                 currentSession.surveys = surveys
-                                // var options = []
-                                // for(let key in currentSession.surveys){
-                                //     options.push(assistant.buildOptionItem(key, [currentSession.surveys[key].name]).setTitle(currentSession.surveys[key].name))
-                                // }
-                                // console.log('Response sent')
-                                // assistant.askWithList('Welcome to TigerAware', assistant.buildList('Here are your survyes')
-                                // .addItems(options))
-                                console.log(assistant.hasSurfaceCapability(assistant.SurfaceCapabilities.SCREEN_OUTPUT))
-                                if(assistant.hasSurfaceCapability(assistant.SurfaceCapabilities.SCREEN_OUTPUT))
-                                    assistant.askWithList(assistant.buildRichResponse().addSimpleResponse('Welcome to Tiger Aware'), assistant.buildList('here are your choices').addItems(assistant.buildOptionItem('XYS', ["india", "indian"]).setTitle('India')))
-                                else
-                                    assistant.tell("Doesn't have a screen")
+                                console.log(currentSession)
+                                if(Object.keys(currentSession.surveys).length >= 1){
+                                    var options = []
+                                    for(var key in currentSession.surveys){
+                                        console.log(key)
+                                        options.push(assistant.buildOptionItem(key, [currentSession.surveys[key].name]).setTitle(currentSession.surveys[key].name))
+                                    }
+                                    assistant.askWithList('Welcome to TigerAware', assistant.buildList('Here are your survyes')
+                                    .addItems(options))
+                                } else {
+                                    //Need to work on this
+                                }
                             })
                             .catch((error) => {
                                 console.log(error)
@@ -209,10 +207,23 @@ app.post('/', function (req, res, next) {
     }
 
     function optionIntent(assistant){
-        assistant.tell(assistant.getSelectedOption())
+        console.log("Option Intent")
+        console.log(currentSession)
+        question = new Question({currentSession: currentSession, survey: currentSession.surveys[assistant.getSelectedOption()].survey})
+        currentSession.currentIndex = 0;
+        currentSession.prevIndex = -1;
+        question.firstQuestion(question)
+            .then(function (toTell){
+                currentSession = question.getData('currentSession')
+                assistant.ask(toTell)
+            })
+            .catch(function (err){
+                console.log(err)
+                assistant.tell('Hey something went wrong.')
+            })
     }
 
-
+    console.log(assistant.getIntent())
     // Add handler functions to the action router.
     let actionRouter = new Map();
 
